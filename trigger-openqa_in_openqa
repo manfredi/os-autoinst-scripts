@@ -24,6 +24,7 @@ osc=${osc:-retry -e -- osc}
 src_project=${src_project:-devel:openQA}
 staging_project=${staging_project:-${src_project}:testing}
 dst_project=${dst_project:-${src_project}:tested}
+scenario_definitions="${scenario_definitions:-"scenario-definitions.yaml"}"
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
@@ -64,7 +65,7 @@ download_latest_published_tumbleweed_image() {
 
 download_scenario() {
     rm -f /var/tmp/sd.yaml
-    curl https://raw.githubusercontent.com/os-autoinst/os-autoinst-distri-openQA/master/scenario-definitions.yaml -o /var/tmp/sd.yaml
+    curl https://raw.githubusercontent.com/os-autoinst/os-autoinst-distri-openQA/master/"${scenario_definitions}" -o /var/tmp/sd.yaml
 }
 
 create_snapshots() {
