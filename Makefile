@@ -1,6 +1,7 @@
 SH_FILES ?= $(shell file --mime-type $$(git ls-files) test/*.t | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p')
 SH_SHELLCHECK_FILES ?= $(shell file --mime-type * | sed -n 's/^\(.*\):.*text\/x-shellscript.*$$/\1/p')
 PY_FILES ?= $(shell git ls-files | xargs file --mime-type 2>/dev/null | grep -E 'text/x-script\.python|text/x-python' | cut -d: -f1)
+RUNNER ?= uv run
 
 ifndef CI
 include .setup.mk
@@ -41,6 +42,7 @@ test-unit: test-bash test-python ## Run all unit tests (bash and python)
 test-bash: $(BPAN) ## Run bash tests
 	"${PROVE}" -r $(if $v,-v )$(test)
 
+.PHONY: test-python
 test-python: ## Run python tests
 	$(PYTHON_RUN) py.test tests
 
@@ -65,6 +67,7 @@ test-yaml: ## Run YAML syntax checks
 	@which yamllint >/dev/null 2>&1 || echo "Command 'yamllint' not found, can not execute YAML syntax checks"
 	yamllint --strict $$(git ls-files "*.yml" "*.yaml" ":!external/")
 
+.PHONY: checkstyle-python
 checkstyle-python: check-ruff check-conventions check-ty ## Run python style checks
 check-ruff: ## Run python style checks with ruff
 	@which ruff >/dev/null 2>&1 || echo "Command 'ruff' not found, can not execute python style checks"
@@ -83,7 +86,15 @@ check-ty: ## Run ty type checker
 
 check-code-health: ## Run code health checks (vulture)
 	@echo "Checking code health…"
-	@vulture $$(git ls-files "**.py") --min-confidence 80
+	@$(RUNNER) vulture $$(git ls-files "**.py") --min-confidence 80
+
+.PHONY: test-with-coverage
+test-with-coverage:
+	$(RUNNER) pytest --cov=src/os-autoinst-scripts tests/
+
+.PHONY: install-python-deps
+install-python-deps:
+	$(RUNNER) pip install -e .[dev]
 
 .PHONY: test-gitlint
 test-gitlint: ## Run commit message checks using gitlint
