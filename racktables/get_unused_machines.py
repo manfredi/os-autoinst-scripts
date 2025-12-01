@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+import logging
 import os
 from getpass import getpass
 
 from racktables import Racktables, RacktablesObject
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+log = logging.getLogger(__name__)
 
 rt_url = os.environ.get("RT_URL", "https://racktables.suse.de")
 user = os.environ["RT_USERNAME"] if "RT_USERNAME" in os.environ else input("Username: ")
@@ -24,6 +28,6 @@ for result_obj in results:
     obj = RacktablesObject(rt)
     obj.from_path(url_path)
     try:
-        print(obj.fqdn, flush=True)
-    except Exception:
-        print(obj.common_name, flush=True)
+        log.info(obj.fqdn)
+    except AttributeError:
+        log.info(obj.common_name)
