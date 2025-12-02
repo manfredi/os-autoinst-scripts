@@ -3,7 +3,6 @@
 import importlib.machinery
 import importlib.util
 import json
-import os.path
 import pathlib
 import re
 from argparse import Namespace
@@ -13,7 +12,7 @@ from urllib.parse import urlparse
 import pytest
 import requests
 
-rootpath = pathlib.Path(os.path.join(pathlib.Path(__file__).parent, "..")).resolve()
+rootpath = pathlib.Path(__file__).parent.parent.resolve()
 
 loader = importlib.machinery.SourceFileLoader("openqa", f"{rootpath}/openqa-trigger-bisect-jobs")
 spec = importlib.util.spec_from_loader(loader.name, loader)
