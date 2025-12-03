@@ -6,6 +6,7 @@ import json
 import pathlib
 import re
 from argparse import Namespace
+from typing import Any
 from unittest.mock import MagicMock, call, patch
 from urllib.parse import urlparse
 
@@ -22,7 +23,7 @@ loader.exec_module(openqa)
 Incident = openqa.Incident
 
 
-def args_factory():
+def args_factory() -> Namespace:
     args = Namespace()
     args.dry_run = False
     args.verbose = 1
@@ -30,7 +31,7 @@ def args_factory():
     return args
 
 
-def mocked_fetch_url(url, request_type="text"):
+def mocked_fetch_url(url: str, request_type: str = "text") -> Any:
     content = ""
     url = urlparse(url)
 
@@ -48,7 +49,7 @@ def mocked_fetch_url(url, request_type="text"):
     return content
 
 
-def mocked_call(cmds, dry_run=False):
+def mocked_call(cmds: list[str], dry_run: bool = False) -> list[str]:
     return cmds
 
 
@@ -62,7 +63,7 @@ cmds = [
 ]
 
 
-def test_catch_CalledProcessError(caplog) -> None:
+def test_catch_CalledProcessError(caplog: pytest.LogCaptureFixture) -> None:
     import subprocess
 
     args = args_factory()
