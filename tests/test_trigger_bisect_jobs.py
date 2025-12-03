@@ -42,10 +42,7 @@ def mocked_fetch_url(url: str, request_type: str = "text") -> Any:
         with pathlib.Path(path).open(encoding="utf-8") as request:
             content = request.read()
     if request_type == "json":
-        try:
-            content = json.loads(content)
-        except json.decoder.JSONDecodeError:
-            raise
+        return json.loads(content)
     return content
 
 
