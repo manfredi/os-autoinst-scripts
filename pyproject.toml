@@ -37,3 +37,11 @@ skip_covered = true
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
+
+[tool.ruff.lint.flake8-copyright]
+author = "SUSE LLC"
+notice-rgx = "Copyright"
