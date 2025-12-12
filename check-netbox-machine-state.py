@@ -1,9 +1,11 @@
+#!/usr/bin/python
 # Copyright SUSE LLC
 from __future__ import annotations
 
 import argparse
 import logging
 import operator
+import os
 import sys
 from functools import reduce
 
@@ -44,6 +46,12 @@ def main(args: argparse.Namespace) -> int:
     return int(any(check_machine(machine) for machine in our_machines))
 
 
+def loglevel_to_int(loglevel: str) -> int:
+    loglevel_step = logging.CRITICAL - logging.ERROR
+    max_loglevel = logging.CRITICAL / loglevel_step
+    return max_loglevel - int(getattr(logging, loglevel.upper(), None) / loglevel_step)
+
+
 log = logging.getLogger(sys.argv[0] if __name__ == "__main__" else __name__)
 if __name__ == "__main__":
     logging.basicConfig()
@@ -53,10 +61,14 @@ if __name__ == "__main__":
         "--verbose",
         help="Increase verbosity level, specify multiple times to increase verbosity",
         action="count",
-        default=1,
+        default=loglevel_to_int(os.environ.get("LOGLEVEL", "ERROR").upper()),
     )
-    parser.add_argument("--netbox-url", help="Netbox instance to use", default="https://netbox.suse.de")
-    parser.add_argument("--netbox-token", required=True, help="API token used to fetch entries from netbox")
+    parser.add_argument(
+        "--netbox-url", help="Netbox instance to use", default=os.environ.get("NETBOX_URL", "https://netbox.suse.de")
+    )
+    parser.add_argument(
+        "--netbox-token", help="API token used to fetch entries from netbox", default=os.environ.get("NETBOX_TOKEN", "")
+    )
     parser.add_argument("--exclude-status", action="append", nargs="+", default=[["active", "unused", "staged"]])
     args = parser.parse_args()
     verbose_to_log = {
