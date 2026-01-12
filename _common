@@ -4,7 +4,8 @@
 # instances, for example over openqa-cli.
 
 errorlog=""
-osc=${osc:-osc}
+prefix="${prefix:-""}"
+osc="${osc:-"$prefix retry -e -- osc"}"
 
 warn() { printf '%s\n' "$@" >&2; }
 
@@ -416,5 +417,5 @@ log-error() (
 debug_osc() (
     set +x
     log-debug "### osc $*"
-    osc "$@"
+    $osc "$@"
 )
