@@ -22,11 +22,6 @@ pr:
                 target_repository: standard
             architectures:
               - x86_64
-          - name: openSUSE_Leap_15.6
-            paths:
-              - target_project: devel:openQA:Leap:15.6
-                target_repository: openSUSE_Leap_15.6
-            architectures: [ x86_64 ]
           - name: '16.0'
             paths:
               - target_project: devel:openQA:Leap:16.0
