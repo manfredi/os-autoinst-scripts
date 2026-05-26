@@ -73,15 +73,16 @@ def get_running_jobs(hypervisor_host: str, *, verbose: bool = False) -> list[int
 
 
 def trigger_actions(host: str, jobs: list[int], *, dry_run: bool, verbose: bool) -> None:
-    """Trigger reboot and job re-triggering."""
-    reboot_cmd = f"ssh {host} sudo reboot"
+    """Trigger kdump (which reboots the machine) and job re-triggering."""
+    # Echoing 'c' to sysrq-trigger panics the kernel, dumping core and rebooting
+    reboot_cmd = f'ssh {host} sudo bash -c "echo c > /proc/sysrq-trigger"'
     if dry_run:
         print(f"[DRY-RUN] Would execute: {reboot_cmd}")
         for job_id in jobs:
             retrigger_cmd = f"openqa-cli api --osd -X POST jobs/{job_id}/restart"
             print(f"[DRY-RUN] Would execute: {retrigger_cmd}")
     else:
-        print(f"Triggering reboot on {host}...")
+        print(f"Triggering kernel crash dump (kdump) on {host}...")
         run_cmd(reboot_cmd, verbose=verbose)
 
         for job_id in jobs:
