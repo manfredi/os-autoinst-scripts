@@ -72,7 +72,7 @@ check-conventions:
 
 .PHONY: check-ty
 check-ty: ## Run ty type checker
-	uv run ty check
+	ty check
 
 check-code-health:
 	@echo "Checking code health…"
