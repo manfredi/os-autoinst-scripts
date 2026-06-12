@@ -278,8 +278,11 @@ def _trigger_bisect_job(args, base_url, job_id, test_name, line) -> str:
     return out
 
 
-def _process_bisections(args, base_url, job_id, all_changes, test, prio) -> str:  # noqa: PLR0913, PLR0917
+def _process_bisections(args, all_changes, test, prio) -> str:
     """Process all potential bisections."""
+    parsed_url = urlparse(args.url)
+    base_url = urlunparse((parsed_url.scheme, parsed_url.netloc, "", "", "", ""))
+    job_id = parsed_url.path.lstrip("/tests/")
     added = []
     for key in all_changes:
         added += list(all_changes[key][BAD] - all_changes[key][GOOD])
@@ -339,7 +342,7 @@ def main(args) -> None:
     prio = int(job["priority"]) + args.priority_add
     log.debug("Found test name '%s'", test)
 
-    created = _process_bisections(args, base_url, job_id, all_changes, test, prio)
+    created = _process_bisections(args, all_changes, test, prio)
 
     if created:
         comment = f"Automatic bisect jobs:\n\n{created}"
