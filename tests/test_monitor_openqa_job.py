@@ -153,14 +153,14 @@ def test_monitor_single_job(
 
 
 @pytest.mark.parametrize(
-    ("job_res", "pkg_name", "comment_obs", "env_patch", "expected_exit"),
+    ("job_res", "pkg_name", "comment_obs", "env_patch", "expected_exit", "expected_skip_reason"),
     [
-        ((1, "passed", ""), "", "", {}, 0),
-        ((1, "failed", "15"), "", "", {}, 1),
-        ((1, "failed", "15"), "pkg", "1", {}, 1),
-        ((1, "passed", ""), "", "", {"OPENQA_CLI_RETRIES": "invalid"}, 0),
-        ((1, "passed", ""), "", "", {"PREFIX": "pre", "OSC": ""}, 0),
-        ((1, "passed", ""), "", "", {"OSC": "custom"}, 0),
+        ((1, "passed", ""), "", "", {}, 0, None),
+        ((1, "failed", "15"), "", "", {}, 0, '{"failed_jobs": [1]}'),
+        ((1, "failed", "15"), "pkg", "1", {}, 0, '{"failed_jobs": [1]}'),
+        ((1, "passed", ""), "", "", {"OPENQA_CLI_RETRIES": "invalid"}, 0, None),
+        ((1, "passed", ""), "", "", {"PREFIX": "pre", "OSC": ""}, 0, None),
+        ((1, "passed", ""), "", "", {"OSC": "custom"}, 0, None),
     ],
 )
 def test_main_flow(
@@ -170,6 +170,7 @@ def test_main_flow(
     comment_obs: str,
     env_patch: dict[str, str],
     expected_exit: int,
+    expected_skip_reason: str,
 ) -> None:
     mocker.patch("monitor_job.load_job_ids", return_value=[1])
     mocker.patch("monitor_job.monitor_single_job", return_value=job_res)
@@ -182,7 +183,10 @@ def test_main_flow(
 
     with pytest.raises(typer.Exit) as exc:
         monitor_job.main(obs_package_name=pkg_name, comment_on_obs=comment_obs)
+
     assert exc.value.exit_code == expected_exit
+    if expected_skip_reason is not None:
+        assert pathlib.Path("job_post_skip_submission").read_text(encoding="utf8") == expected_skip_reason
 
 
 @pytest.mark.parametrize(
