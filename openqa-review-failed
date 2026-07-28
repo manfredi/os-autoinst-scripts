@@ -1,1 +1,5 @@
-"$(dirname "$0")"/openqa-monitor-investigation-candidates | "$(dirname "$0")"/openqa-label-known-issues-multi 3>&1 1> /dev/null 2>&3- | sed -n 's/\[\([^]]*\)\].*Unknown test issue, to be reviewed.*/\1/p' | "$(dirname "$0")"/openqa-investigate-multi
+#!/bin/bash
+dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=/dev/null
+source "$dir"/_common
+"$dir"/openqa-monitor-investigation-candidates | "$dir"/openqa-label-known-issues-multi 3>&1 1> /dev/null 2>&3- | extract_unreviewed_urls | "$dir"/openqa-investigate-multi
