@@ -10,6 +10,10 @@ submit_target=${submit_target:-openSUSE:Factory}
 
 warn() { printf '%s\n' "$@" >&2; }
 
+# Extract the job URLs from "Unknown test issue, to be reviewed" headers emitted
+# by openqa-label-known-issues, reading from stdin.
+extract_unreviewed_urls() { sed -n 's/\[\([^]]*\)\].*Unknown test issue, to be reviewed.*/\1/p'; }
+
 for cmd in jq retry osc openqa-cli; do
     if ! command -v "$cmd" > /dev/null 2>&1; then
         warn "ERROR: '$cmd' command not found. Please install $cmd."

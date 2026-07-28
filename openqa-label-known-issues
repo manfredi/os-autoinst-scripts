@@ -442,8 +442,8 @@ def handle_unreviewed(
     excerpt += extract_excerpt(report_file)
     excerpt += "\n" + snip_end
 
-    print(header, file=sys.stderr)
-    print(excerpt, file=sys.stderr)
+    print(header)
+    print(excerpt)
 
     if email_unreviewed and group_id != "null":
         try:

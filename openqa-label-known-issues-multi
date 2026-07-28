@@ -30,19 +30,21 @@ main() {
 
     # shellcheck disable=SC2013
     for testurl in $(cat - | sed 's/ .*$//'); do
-        err_out=$(mktemp)
+        stdout_out=$(mktemp)
         set +e
-        { "$(dirname "$0")"/openqa-label-known-issues "$testurl" 2>&1 1>&3 | tee "$err_out" >&2; } 3>&1
-        rc=${PIPESTATUS[0]}
+        "$(dirname "$0")"/openqa-label-known-issues "$testurl" > "$stdout_out"
+        rc=$?
         set -e
         if [[ $rc -ne 0 ]]; then
-            rm -f "$err_out"
+            cat "$stdout_out" >&2
+            rm -f "$stdout_out"
             exit "$rc"
         fi
-        if grep -q "Unknown test issue, to be reviewed" "$err_out"; then
+        cat "$stdout_out" >&2
+        if grep -qE '^\[.*\].*Unknown test issue, to be reviewed' "$stdout_out"; then
             to_review+=("$testurl")
         fi
-        rm -f "$err_out"
+        rm -f "$stdout_out"
     done
     print_summary
 }
