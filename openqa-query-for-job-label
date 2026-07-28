@@ -40,7 +40,7 @@ main() {
 
     [ "$dry_run" = "1" ] && _dry_run="echo"
     for h in $host; do
-        $_dry_run ssh "$h" "cd /tmp; sudo -u geekotest psql --no-align --tuples-only -F ' | ' -v scheme=\"${scheme}\" -v host=\"${h}\" --command=\"$query\" openqa"
+        $_dry_run ssh "$h" "cd /tmp; sudo -u geekotest psql --no-align --tuples-only -F ' | ' -v scheme=\"${scheme}\" -v host=\"${h}\" -f - openqa" <<< "$query"
     done
     :
 }
