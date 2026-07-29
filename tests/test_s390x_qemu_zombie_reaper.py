@@ -182,49 +182,27 @@ def test_trigger_actions_custom_limits(
     mock_sleep.assert_called_once_with(60)
 
 
-def test_check_libvirt_health_success(mocker: MockerFixture) -> None:
+@pytest.mark.parametrize(
+    ("returncode", "stdout", "stderr", "side_effect", "expected"),
+    [
+        (0, "Id Name State\n----------------\n1 openQA-SUT-1 running", "", None, True),
+        (reaper.SSH_ERR_CONNECT, "", "ssh: connect to host ...", None, True),
+        (1, "", "error: failed to connect to the hypervisor", None, False),
+        (0, "error: Disconnected from qemu:///system due to end of file", "", None, False),
+        (0, "", "", subprocess.TimeoutExpired("ssh ...", 15), False),
+    ],
+    ids=["success", "unreachable_ssh", "failed_command", "error_in_output", "timeout"],
+)
+def test_check_libvirt_health(
+    mocker: MockerFixture, returncode: int, stdout: str, stderr: str, side_effect: Exception | None, expected: bool
+) -> None:
     mock_run = mocker.patch("subprocess.run")
-    mock_run.return_value = mocker.MagicMock(
-        returncode=0, stdout="Id Name State\n----------------\n1 openQA-SUT-1 running", stderr=""
-    )
+    if side_effect:
+        mock_run.side_effect = side_effect
+    else:
+        mock_run.return_value = mocker.MagicMock(returncode=returncode, stdout=stdout, stderr=stderr)
     config = reaper.ReaperConfig(dry_run=False, verbose=False)
-    assert reaper.check_libvirt_health("s390zl12.oqa.prg2.suse.org", config) is True
-
-
-def test_check_libvirt_health_unreachable_ssh(mocker: MockerFixture) -> None:
-    mock_run = mocker.patch("subprocess.run")
-    mock_run.return_value = mocker.MagicMock(
-        returncode=reaper.SSH_ERR_CONNECT,
-        stdout="",
-        stderr="ssh: connect to host s390zl12.oqa.prg2.suse.org port 22: Connection refused",
-    )
-    config = reaper.ReaperConfig(dry_run=False, verbose=False)
-    assert reaper.check_libvirt_health("s390zl12.oqa.prg2.suse.org", config) is True
-
-
-def test_check_libvirt_health_failed_command(mocker: MockerFixture) -> None:
-    mock_run = mocker.patch("subprocess.run")
-    mock_run.return_value = mocker.MagicMock(
-        returncode=1, stdout="", stderr="error: failed to connect to the hypervisor"
-    )
-    config = reaper.ReaperConfig(dry_run=False, verbose=False)
-    assert reaper.check_libvirt_health("s390zl12.oqa.prg2.suse.org", config) is False
-
-
-def test_check_libvirt_health_error_in_output(mocker: MockerFixture) -> None:
-    mock_run = mocker.patch("subprocess.run")
-    mock_run.return_value = mocker.MagicMock(
-        returncode=0, stdout="error: Disconnected from qemu:///system due to end of file", stderr=""
-    )
-    config = reaper.ReaperConfig(dry_run=False, verbose=False)
-    assert reaper.check_libvirt_health("s390zl12.oqa.prg2.suse.org", config) is False
-
-
-def test_check_libvirt_health_timeout(mocker: MockerFixture) -> None:
-    mock_run = mocker.patch("subprocess.run")
-    mock_run.side_effect = subprocess.TimeoutExpired("ssh ...", 15)
-    config = reaper.ReaperConfig(dry_run=False, verbose=False)
-    assert reaper.check_libvirt_health("s390zl12.oqa.prg2.suse.org", config) is False
+    assert reaper.check_libvirt_health("s390zl12.oqa.prg2.suse.org", config) is expected
 
 
 def test_handle_host_unhealthy_libvirt(mocker: MockerFixture, capsys: pytest.CaptureFixture[str]) -> None:
