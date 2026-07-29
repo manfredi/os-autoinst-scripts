@@ -39,6 +39,8 @@ HYPERVISORS = {
     "s390zl13.oqa.prg2.suse.org": ["worker32", "worker33"],
 }
 
+SSH_ERR_CONNECT = 255
+
 
 @dataclass(frozen=True)
 class ReaperConfig:
@@ -170,6 +172,38 @@ def trigger_actions(
             run_cmd(retrigger_cmd, verbose=config.verbose)
 
 
+def check_libvirt_health(host: str, config: ReaperConfig) -> bool:
+    """Check if libvirt is responsive and healthy on the host."""
+    if config.verbose:
+        print(f"Checking libvirt health on {host}...")
+    check_cmd = f'ssh -o ConnectTimeout={config.ssh_timeout} -o BatchMode=yes {host} "sudo virsh list"'
+    try:
+        res = subprocess.run(  # noqa: S603
+            shlex.split(check_cmd),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"libvirt health check failed on {host}: {e}")
+        return False
+
+    if res.returncode == SSH_ERR_CONNECT:
+        if config.verbose:
+            print(f"Host {host} is unreachable over SSH (exit code 255). Skipping libvirt health check.")
+        return True
+    if res.returncode != 0:
+        print(f"libvirt health check failed on {host}: virsh list returned {res.returncode}")
+        if res.stderr:
+            print(f"stderr: {res.stderr.strip()}")
+        return False
+    if "error:" in res.stderr or "error:" in res.stdout:
+        print(f"libvirt health check failed on {host}: error detected in output")
+        return False
+    return True
+
+
 def handle_host(
     host: str,
     config: ReaperConfig,
@@ -180,40 +214,50 @@ def handle_host(
 
     # Discover zombie qemu processes
     zombie_pids_str = run_cmd(f"ssh {host} pgrep -r Z qemu-system-s39", check=False, verbose=config.verbose)
-    if not zombie_pids_str:
-        if config.verbose:
-            print(f"Host {host} is clean.")
-        return
+    if zombie_pids_str:
+        # Snapshot process identities (PID + start time + state) to detect PID reuse
+        pids = ",".join(zombie_pids_str.split())
+        id_cmd = f"ssh {host} ps -o pid,lstart,state -p {pids} --no-headers"
+        initial_identities = run_cmd(id_cmd, check=False, verbose=config.verbose)
 
-    # Snapshot process identities (PID + start time + state) to detect PID reuse
-    pids = ",".join(zombie_pids_str.split())
-    id_cmd = f"ssh {host} ps -o pid,lstart,state -p {pids} --no-headers"
-    initial_identities = run_cmd(id_cmd, check=False, verbose=config.verbose)
+        print(f"Detected potential zombies on {host}, waiting 10s to verify persistence...")
+        time.sleep(10)
 
-    print(f"Detected potential zombies on {host}, waiting 10s to verify persistence...")
-    time.sleep(10)
+        # Re-verify identities. Only processes that match exactly are confirmed as persistent zombies.
+        verified_identities = run_cmd(id_cmd, check=False, verbose=config.verbose)
+        stuck_identities = set(initial_identities.splitlines()).intersection(verified_identities.splitlines())
 
-    # Re-verify identities. Only processes that match exactly are confirmed as persistent zombies.
-    verified_identities = run_cmd(id_cmd, check=False, verbose=config.verbose)
-    stuck_identities = set(initial_identities.splitlines()).intersection(verified_identities.splitlines())
+        if stuck_identities:
+            # Extract PIDs for logging
+            stuck_pids = [line.split()[0] for line in stuck_identities]
+            print(f"!!! CRITICAL: Found persistent zombie processes on {host}: {', '.join(stuck_pids)}")
 
-    if not stuck_identities:
+            print(f"Identifying jobs using {host}...")
+            jobs = get_running_jobs(host, verbose=config.verbose)
+            if jobs:
+                print(f"Affected jobs to be retriggered: {', '.join(map(str, jobs))}")
+            else:
+                print(f"No active jobs found using {host}.")
+
+            trigger_actions(host, jobs, config)
+            return
+
         if config.verbose:
             print(f"Zombies on {host} were transient or PIDs were reused.")
-        return
 
-    # Extract PIDs for logging
-    stuck_pids = [line.split()[0] for line in stuck_identities]
-    print(f"!!! CRITICAL: Found persistent zombie processes on {host}: {', '.join(stuck_pids)}")
+    # If no persistent zombies were found, check general libvirt health
+    if not check_libvirt_health(host, config):
+        print(f"!!! CRITICAL: libvirt is unhealthy on {host}")
+        print(f"Identifying jobs using {host}...")
+        jobs = get_running_jobs(host, verbose=config.verbose)
+        if jobs:
+            print(f"Affected jobs to be retriggered: {', '.join(map(str, jobs))}")
+        else:
+            print(f"No active jobs found using {host}.")
 
-    print(f"Identifying jobs using {host}...")
-    jobs = get_running_jobs(host, verbose=config.verbose)
-    if jobs:
-        print(f"Affected jobs to be retriggered: {', '.join(map(str, jobs))}")
-    else:
-        print(f"No active jobs found using {host}.")
-
-    trigger_actions(host, jobs, config)
+        trigger_actions(host, jobs, config)
+    elif config.verbose:
+        print(f"Host {host} is clean and libvirt is healthy.")
 
 
 @app.command()
