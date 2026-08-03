@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime
 import importlib.machinery
 import importlib.util
+import logging
 import pathlib
 import subprocess
 import sys
@@ -230,3 +231,35 @@ def test_log_skip_reason(reason: str, expected: str, caplog: pytest.LogCaptureFi
     with caplog.at_level("INFO"):
         auto_submit._log_skip_reason(reason)  # noqa: SLF001
     assert caplog.records[0].getMessage() == expected
+
+
+def test_get_packages_to_submit_env(mocker: MockerFixture) -> None:
+    mocker.patch.dict("os.environ", {"PACKAGES": "pkg1 pkg2"})
+    res = auto_submit._get_packages_to_submit("dst", "osc", dry_run=False)  # noqa: SLF001
+    assert res == ["pkg1", "pkg2"]
+
+
+def test_get_packages_to_submit_osc(mocker: MockerFixture) -> None:
+    mocker.patch.dict("os.environ", {}, clear=True)
+    mock_run = mocker.patch("auto_submit.run_osc_cmd")
+    mock_run.return_value = subprocess.CompletedProcess(["osc"], 0, stdout="pkg1\npkg2-test\npkg3\n")
+    res = auto_submit._get_packages_to_submit("dst", "osc", dry_run=True)  # noqa: SLF001
+    assert res == ["pkg1", "pkg3"]
+    mock_run.assert_called_once_with(["osc", "ls", "dst"], dry_run=True, mutating=False)
+
+
+@pytest.mark.parametrize(
+    ("verbose", "quiet", "expected_level"),
+    [
+        (0, 0, logging.INFO),
+        (1, 0, logging.DEBUG),
+        (0, 1, logging.WARNING),
+        (0, 2, logging.ERROR),
+        (0, 3, logging.CRITICAL),
+    ],
+)
+def test_main_logging(mocker: MockerFixture, verbose: int, quiet: int, expected_level: int) -> None:
+    mocker.patch("auto_submit._run_submissions")
+    mock_basic_config = mocker.patch("logging.basicConfig")
+    auto_submit.main(verbose=verbose, quiet=quiet)
+    mock_basic_config.assert_called_with(level=expected_level, format="%(levelname)s: %(message)s", force=True)
