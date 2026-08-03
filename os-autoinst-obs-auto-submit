@@ -827,7 +827,7 @@ def _run_submissions(  # noqa: C901,  PLR0912, PLR0913, PLR0914, PLR0915
     original_dir = pathlib.Path.cwd().resolve()
 
     # Determine packages to submit
-    auto_submit_packages = _get_packages_to_submit(dst_project, osc_cmd_str, dry_run)
+    auto_submit_packages = _get_packages_to_submit(dst_project, osc_cmd_str, dry_run=dry_run)
 
     # Submit packages using TMPDIR
     must_cleanup_staging = False

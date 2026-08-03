@@ -230,3 +230,18 @@ def test_log_skip_reason(reason: str, expected: str, caplog: pytest.LogCaptureFi
     with caplog.at_level("INFO"):
         auto_submit._log_skip_reason(reason)  # noqa: SLF001
     assert caplog.records[0].getMessage() == expected
+
+
+def test_get_packages_to_submit_env(mocker: MockerFixture) -> None:
+    mocker.patch.dict("os.environ", {"PACKAGES": "pkg1 pkg2"})
+    res = auto_submit._get_packages_to_submit("dst", "osc", dry_run=False)  # noqa: SLF001
+    assert res == ["pkg1", "pkg2"]
+
+
+def test_get_packages_to_submit_osc(mocker: MockerFixture) -> None:
+    mocker.patch.dict("os.environ", {}, clear=True)
+    mock_run = mocker.patch("auto_submit.run_osc_cmd")
+    mock_run.return_value = subprocess.CompletedProcess(["osc"], 0, stdout="pkg1\npkg2-test\npkg3\n")
+    res = auto_submit._get_packages_to_submit("dst", "osc", dry_run=True)  # noqa: SLF001
+    assert res == ["pkg1", "pkg3"]
+    mock_run.assert_called_once_with(["osc", "ls", "dst"], dry_run=True, mutating=False)
