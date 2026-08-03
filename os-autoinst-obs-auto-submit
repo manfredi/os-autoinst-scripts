@@ -911,6 +911,8 @@ def main(  # noqa: PLR0913, PLR0917
     submit_target_extra: Annotated[
         str, typer.Option(envvar="submit_target_extra")
     ] = "openSUSE:Backports:SLE-15-SP7:Update,openSUSE:Leap:16.0,openSUSE:Leap:16.1",
+    verbose: Annotated[int, typer.Option("--verbose", "-v", count=True)] = 0,
+    quiet: Annotated[int, typer.Option("--quiet", "-V", count=True)] = 0,
 ) -> None:
     """Prepare and submit os-autoinst packages to target projects like openSUSE:Factory.
 
@@ -918,7 +920,11 @@ def main(  # noqa: PLR0913, PLR0917
     for openQA-related packages on OBS (Open Build Service) and Gitea.
     Can be configured additionally using environment variables.
     """
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+    verbosity = verbose - quiet
+    levels = [logging.CRITICAL, logging.ERROR, logging.WARNING, logging.INFO, logging.DEBUG]
+    # base level INFO is at levels.index(logging.INFO). Increment/decrement moves the index.
+    idx = max(0, min(len(levels) - 1, levels.index(logging.INFO) + verbosity))
+    logging.basicConfig(level=levels[idx], format="%(levelname)s: %(message)s", force=True)
     _run_submissions(
         src_project=src_project,
         dst_project=dst_project,

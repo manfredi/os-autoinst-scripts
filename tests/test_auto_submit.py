@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime
 import importlib.machinery
 import importlib.util
+import logging
 import pathlib
 import subprocess
 import sys
@@ -245,3 +246,20 @@ def test_get_packages_to_submit_osc(mocker: MockerFixture) -> None:
     res = auto_submit._get_packages_to_submit("dst", "osc", dry_run=True)  # noqa: SLF001
     assert res == ["pkg1", "pkg3"]
     mock_run.assert_called_once_with(["osc", "ls", "dst"], dry_run=True, mutating=False)
+
+
+@pytest.mark.parametrize(
+    ("verbose", "quiet", "expected_level"),
+    [
+        (0, 0, logging.INFO),
+        (1, 0, logging.DEBUG),
+        (0, 1, logging.WARNING),
+        (0, 2, logging.ERROR),
+        (0, 3, logging.CRITICAL),
+    ],
+)
+def test_main_logging(mocker: MockerFixture, verbose: int, quiet: int, expected_level: int) -> None:
+    mocker.patch("auto_submit._run_submissions")
+    mock_basic_config = mocker.patch("logging.basicConfig")
+    auto_submit.main(verbose=verbose, quiet=quiet)
+    mock_basic_config.assert_called_with(level=expected_level, format="%(levelname)s: %(message)s", force=True)
