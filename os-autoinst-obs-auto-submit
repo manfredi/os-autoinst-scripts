@@ -772,7 +772,7 @@ def _get_packages_to_submit(dst_project: str, osc_cmd_str: str, *, dry_run: bool
             pkg = line.strip()
             if pkg and not pkg.endswith("-test"):
                 auto_submit_packages.append(pkg)
-    except Exception as e:  # noqa: BLE001
+    except (subprocess.SubprocessError, OSError) as e:
         log.warning("Failed to list packages from %s: %s", dst_project, e)
         return []
     else:
@@ -789,6 +789,7 @@ def _run_submissions(  # noqa: C901,  PLR0912, PLR0913, PLR0914, PLR0915
     submit_target: str,
     *,
     dry_run: bool,
+    force: bool,
     osc_poll_interval: int,
     osc_build_start_poll_tries: int,
     throttle_days: int,
@@ -818,8 +819,26 @@ def _run_submissions(  # noqa: C901,  PLR0912, PLR0913, PLR0914, PLR0915
     if submit_target_extra and submit_target_extra != "none":
         targets.extend(submit_target_extra.split(","))
 
+    if force:
+        skip_file = pathlib.Path("job_post_skip_submission")
+        if skip_file.exists():
+            log.info("Force mode enabled: removing '%s' upfront", skip_file)
+            if not dry_run:
+                skip_file.unlink()
+
+        if staging_project and staging_project not in {"none", src_project}:
+            log.info("Force mode enabled: cleaning up staging project '%s' upfront", staging_project)
+            cleanup_cmd = ["cleanup-obs-project", staging_project, "I am sure"]
+            if dry_run:
+                log.info("[dry-run] Would execute: %s", " ".join(cleanup_cmd))
+            else:
+                try:
+                    subprocess.run(cleanup_cmd, check=True)  # noqa: S603
+                except (subprocess.SubprocessError, OSError) as e:
+                    log.warning("cleanup-obs-project upfront failed: %s", e)
+
     skip_file = pathlib.Path("job_post_skip_submission")
-    if skip_file.exists():
+    if skip_file.exists() and not force:
         _log_skip_reason(_format_skip_reason(skip_file.read_text(encoding="utf-8")))
         raise typer.Exit(code=0)
 
@@ -885,14 +904,14 @@ def _run_submissions(  # noqa: C901,  PLR0912, PLR0913, PLR0914, PLR0915
             os.chdir(original_dir)
 
     # Cleanup obs project
-    if not pathlib.Path("job_post_skip_submission").exists():
+    if force or not pathlib.Path("job_post_skip_submission").exists():
         cleanup_cmd = ["cleanup-obs-project", "devel:openQA:testing", "I am sure"]
         if dry_run:
             log.info("[dry-run] Would execute: %s", " ".join(cleanup_cmd))
         else:
             try:
                 subprocess.run(cleanup_cmd, check=True)  # noqa: S603
-            except Exception as e:  # noqa: BLE001
+            except (subprocess.SubprocessError, OSError) as e:
                 log.warning("cleanup-obs-project failed: %s", e)
 
 
@@ -913,6 +932,7 @@ def main(  # noqa: PLR0913, PLR0917
     ] = "openSUSE:Backports:SLE-15-SP7:Update,openSUSE:Leap:16.0,openSUSE:Leap:16.1",
     verbose: Annotated[int, typer.Option("--verbose", "-v", count=True)] = 0,
     quiet: Annotated[int, typer.Option("--quiet", "-V", count=True)] = 0,
+    force: Annotated[bool, typer.Option("--force", "-f", envvar="force")] = False,  # noqa: FBT002
 ) -> None:
     """Prepare and submit os-autoinst packages to target projects like openSUSE:Factory.
 
@@ -931,6 +951,7 @@ def main(  # noqa: PLR0913, PLR0917
         staging_project=staging_project,
         submit_target=submit_target,
         dry_run=dry_run,
+        force=force,
         osc_poll_interval=osc_poll_interval,
         osc_build_start_poll_tries=osc_build_start_poll_tries,
         throttle_days=throttle_days,

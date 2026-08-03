@@ -263,3 +263,29 @@ def test_main_logging(mocker: MockerFixture, verbose: int, quiet: int, expected_
     mock_basic_config = mocker.patch("logging.basicConfig")
     auto_submit.main(verbose=verbose, quiet=quiet)
     mock_basic_config.assert_called_with(level=expected_level, format="%(levelname)s: %(message)s", force=True)
+
+
+def test_run_submissions_force(mocker: MockerFixture) -> None:
+    mock_run = mocker.patch("subprocess.run")
+    mock_exists = mocker.patch("auto_submit.pathlib.Path.exists", return_value=True)
+    mock_unlink = mocker.patch("auto_submit.pathlib.Path.unlink")
+    mocker.patch("auto_submit._get_packages_to_submit", return_value=["pkg1"])
+    mocker.patch("auto_submit.AutoSubmitter")
+
+    auto_submit._run_submissions(  # noqa: SLF001
+        src_project="devel:openQA",
+        dst_project="devel:openQA:tested",
+        staging_project="devel:openQA:testing",
+        submit_target="openSUSE:Factory",
+        dry_run=False,
+        force=True,
+        osc_poll_interval=2,
+        osc_build_start_poll_tries=90,
+        throttle_days=2,
+        throttle_days_leap_16=7,
+        git_user="user",
+        submit_target_extra="none",
+    )
+
+    mock_unlink.assert_called_once()
+    mock_run.assert_any_call(["cleanup-obs-project", "devel:openQA:testing", "I am sure"], check=True)
