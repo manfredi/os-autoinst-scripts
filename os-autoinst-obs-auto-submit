@@ -275,7 +275,7 @@ class AutoSubmitter:
         version: str,
     ) -> bool:
         """Create an OBS submit request."""
-        req = get_obs_sr_id(target, self.dst_project, package, self.osc_cmd_str, self.dry_run)
+        req = get_obs_sr_id(target, self.dst_project, package, self.osc_cmd_str, dry_run=self.dry_run)
         cmd = [*shlex.split(self.osc_cmd_str), "sr"]
         if req:
             cmd.extend(["-s", req])
