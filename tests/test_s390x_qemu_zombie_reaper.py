@@ -1,5 +1,5 @@
 # Copyright SUSE LLC
-# ruff: noqa: FBT001
+# ruff: noqa: FBT001, S404
 """Unit tests for s390x-qemu-zombie-reaper.py."""
 
 from __future__ import annotations
@@ -7,6 +7,7 @@ from __future__ import annotations
 import importlib.machinery
 import importlib.util
 import pathlib
+import subprocess
 import sys
 from typing import TYPE_CHECKING
 
@@ -105,11 +106,13 @@ def test_trigger_actions(
 def test_handle_host_clean(mocker: MockerFixture) -> None:
     mock_run_cmd = mocker.patch("reaper.run_cmd")
     mock_run_cmd.return_value = ""
+    mock_health = mocker.patch("reaper.check_libvirt_health", return_value=True)
     config = reaper.ReaperConfig(dry_run=False, verbose=False)
     reaper.handle_host("s390zl12.oqa.prg2.suse.org", config)
     mock_run_cmd.assert_called_once_with(
         "ssh s390zl12.oqa.prg2.suse.org pgrep -r Z qemu-system-s39", check=False, verbose=False
     )
+    mock_health.assert_called_once_with("s390zl12.oqa.prg2.suse.org", config)
 
 
 def test_handle_host_zombie_persistent(mocker: MockerFixture, capsys: pytest.CaptureFixture[str]) -> None:
@@ -177,3 +180,40 @@ def test_trigger_actions_custom_limits(
     assert "Waiting 1 minutes for host stability before restarting jobs..." in captured
     mock_wait.assert_called_once_with("s390zl12.oqa.prg2.suse.org", config)
     mock_sleep.assert_called_once_with(60)
+
+
+@pytest.mark.parametrize(
+    ("returncode", "stdout", "stderr", "side_effect", "expected"),
+    [
+        (0, "Id Name State\n----------------\n1 openQA-SUT-1 running", "", None, True),
+        (reaper.SSH_ERR_CONNECT, "", "ssh: connect to host ...", None, True),
+        (1, "", "error: failed to connect to the hypervisor", None, False),
+        (0, "error: Disconnected from qemu:///system due to end of file", "", None, False),
+        (0, "", "", subprocess.TimeoutExpired("ssh ...", 15), False),
+    ],
+    ids=["success", "unreachable_ssh", "failed_command", "error_in_output", "timeout"],
+)
+def test_check_libvirt_health(
+    mocker: MockerFixture, returncode: int, stdout: str, stderr: str, side_effect: Exception | None, expected: bool
+) -> None:
+    mock_run = mocker.patch("subprocess.run")
+    if side_effect:
+        mock_run.side_effect = side_effect
+    else:
+        mock_run.return_value = mocker.MagicMock(returncode=returncode, stdout=stdout, stderr=stderr)
+    config = reaper.ReaperConfig(dry_run=False, verbose=False)
+    assert reaper.check_libvirt_health("s390zl12.oqa.prg2.suse.org", config) is expected
+
+
+def test_handle_host_unhealthy_libvirt(mocker: MockerFixture, capsys: pytest.CaptureFixture[str]) -> None:
+    mock_run_cmd = mocker.patch("reaper.run_cmd")
+    mock_run_cmd.side_effect = ["", '{"workers": []}', ""]  # pgrep, openqa-cli workers, and reboot
+    mock_health = mocker.patch("reaper.check_libvirt_health", return_value=False)
+    mocker.patch("reaper.wait_for_host", return_value=True)
+    mocker.patch("time.sleep")
+    config = reaper.ReaperConfig(dry_run=False, verbose=False)
+    reaper.handle_host("s390zl12.oqa.prg2.suse.org", config)
+    captured = capsys.readouterr().out
+    assert "!!! CRITICAL: libvirt is unhealthy on s390zl12.oqa.prg2.suse.org" in captured
+    assert "Triggering kernel crash dump (kdump) on s390zl12.oqa.prg2.suse.org..." in captured
+    mock_health.assert_called_once_with("s390zl12.oqa.prg2.suse.org", config)
