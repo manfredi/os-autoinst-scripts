@@ -272,10 +272,23 @@ def label_on_issues_from_issue_tracker(
             search = ""
 
         force_result = ""
-        label = f"poo#{issue_id} {subject}"
+        match_retry = re.search(r'":retry(?::(\d+))?', after)
+        match_force = re.search(r":force_result:([a-z_]+)", after)
+
+        # By default, do not carry over the label if retry or force_result is requested.
+        # - retry: openQA skips job completion hook scripts for jobs with carried-over labels.
+        # - force_result: we agreed to not carry over labels which are just forcing the result.
+        carry_over = not (bool(match_retry) or bool(match_force))
+
+        if re.search(r":no_carry_over\b", after):
+            carry_over = False
+        elif re.search(r":carry_over\b", after):
+            carry_over = True
+
+        label_prefix = "poo#" if carry_over else "label:poo#"
+        label = f"{label_prefix}{issue_id} {subject}"
 
         if len(search) >= min_search_term:
-            match_force = re.search(r":force_result:([a-z_]+)", after)
             if match_force:
                 if tracker == force_result_tracker:
                     force_result = match_force.group(1)
@@ -285,7 +298,6 @@ def label_on_issues_from_issue_tracker(
                     )
 
             restart = ""
-            match_retry = re.search(r'":retry(?::(\d+))?', after)
             if match_retry:
                 limit_str = match_retry.group(1)
                 limit = int(limit_str) if limit_str is not None else get_default_retry_limit(default_retry_limit)
