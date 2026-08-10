@@ -159,7 +159,7 @@ def test_make_obs_submit_request_success(mocker: MockerFixture) -> None:
     res = submitter.make_obs_submit_request("pkg", "Factory", "3.14")
     assert res is True
     mock_run.assert_called_once_with(
-        ["osc", "sr", "-s", "23", "-m", "Update to 3.14", "Factory"], dry_run=False, mutating=True
+        ["osc", "sr", "-s", "23", "-m", "Update to 3.14", "dst", "pkg", "Factory"], dry_run=False, mutating=True
     )
 
 
@@ -173,7 +173,9 @@ def test_make_obs_submit_request_new(mocker: MockerFixture) -> None:
     )
     res = submitter.make_obs_submit_request("pkg", "Factory", "3.14")
     assert res is True
-    mock_run.assert_called_once_with(["osc", "sr", "-m", "Update to 3.14", "Factory"], dry_run=False, mutating=True)
+    mock_run.assert_called_once_with(
+        ["osc", "sr", "-m", "Update to 3.14", "dst", "pkg", "Factory"], dry_run=False, mutating=True
+    )
 
 
 def test_make_obs_submit_request_failure(mocker: MockerFixture) -> None:

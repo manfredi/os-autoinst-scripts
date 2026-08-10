@@ -292,7 +292,7 @@ class AutoSubmitter:
         cmd = [*shlex.split(self.osc_cmd_str), "sr"]
         if req:
             cmd.extend(["-s", req])
-        cmd.extend(["-m", f"Update to {version}", target])
+        cmd.extend(["-m", f"Update to {version}", self.dst_project, package, target])
 
         try:
             run_osc_cmd(cmd, dry_run=self.dry_run, mutating=True)
