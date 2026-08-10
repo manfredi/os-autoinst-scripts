@@ -289,3 +289,19 @@ def test_run_submissions_force(mocker: MockerFixture) -> None:
 
     mock_unlink.assert_called_once()
     mock_run.assert_any_call(["cleanup-obs-project", "devel:openQA:testing", "I am sure"], check=True)
+
+
+def test_run_osc_cmd_error_logging(caplog: pytest.LogCaptureFixture, mocker: MockerFixture) -> None:
+    mock_run = mocker.patch(
+        "auto_submit.subprocess.run",
+        side_effect=subprocess.CalledProcessError(1, ["osc", "sr"], output="some stdout", stderr="some stderr"),
+    )
+
+    with caplog.at_level("ERROR"), pytest.raises(subprocess.CalledProcessError):
+        auto_submit.run_osc_cmd(["osc", "sr"], dry_run=False, mutating=True)
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert len(messages) == 1
+    assert "Command 'osc sr' failed with exit code 1" in messages[0]
+    assert "Command stdout:\nsome stdout" in messages[0]
+    assert "Command stderr:\nsome stderr" in messages[0]
