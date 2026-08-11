@@ -60,6 +60,22 @@ def is_transient_osc_error(exc: BaseException) -> bool:
     return False
 
 
+def _run_subprocess(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    try:
+        res = subprocess.run(cmd, check=True, capture_output=True, text=True)  # noqa: S603
+        log.debug("Command '%s' output:\n%s", " ".join(cmd), res.stdout)
+    except subprocess.CalledProcessError as e:
+        msg = f"Command '{' '.join(cmd)}' failed with exit code {e.returncode}"
+        if e.stdout:
+            msg += f"\nCommand stdout:\n{e.stdout.strip()}"
+        if e.stderr:
+            msg += f"\nCommand stderr:\n{e.stderr.strip()}"
+        log.exception(msg)
+        raise
+    else:
+        return res
+
+
 def run_osc_cmd(cmd: list[str], *, dry_run: bool = False, mutating: bool = False) -> subprocess.CompletedProcess[str]:
     """Run an osc command with retry logic."""
     if dry_run and mutating:
@@ -75,15 +91,12 @@ def run_osc_cmd(cmd: list[str], *, dry_run: bool = False, mutating: bool = False
     ):
         with attempt:
             try:
-                res = subprocess.run(cmd, check=True, capture_output=True, text=True)  # noqa: S603
-                log.debug("Command '%s' output:\n%s", " ".join(cmd), res.stdout)
+                return _run_subprocess(cmd)
             except Exception as e:
                 if dry_run:
                     log.warning("[dry-run] Command '%s' failed (%s), falling back to dummy success.", " ".join(cmd), e)
                     return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
                 raise
-            else:
-                return res
     return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")  # pragma: no cover
 
 
@@ -279,7 +292,7 @@ class AutoSubmitter:
         cmd = [*shlex.split(self.osc_cmd_str), "sr"]
         if req:
             cmd.extend(["-s", req])
-        cmd.extend(["-m", f"Update to {version}", target])
+        cmd.extend(["-m", f"Update to {version}", self.dst_project, package, target])
 
         try:
             run_osc_cmd(cmd, dry_run=self.dry_run, mutating=True)
