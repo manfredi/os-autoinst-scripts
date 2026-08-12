@@ -171,9 +171,12 @@ def test_comment_on_job(mocker: MockerFixture) -> None:
     mock_run.reset_mock()
     mocker.patch.dict("os.environ", {"enable_force_result": "true"})
     openqa_label_known_issues.comment_on_job("123", "my comment", "softfailed", client)
-    mock_run.assert_called_once_with(
-        ["-X", "POST", "jobs/123/comments", "text=label:force_result:softfailed:my comment"]
-    )
+    mock_run.assert_called_once_with([
+        "-X",
+        "POST",
+        "jobs/123/comments",
+        "text=label:force_result:softfailed:my comment",
+    ])
 
     # 3. Failed subprocess
     mock_run.reset_mock()
@@ -255,7 +258,7 @@ def test_label_on_issues_from_issue_tracker(mocker: MockerFixture) -> None:
     mock_lbl.assert_called_once_with(
         "123",
         "match_me",
-        'poo#1 test auto_review:"match_me":retry:force_result:softfailed',
+        'label:poo#1 test auto_review:"match_me":retry:force_result:softfailed',
         "file",
         "1",
         "softfailed",
@@ -315,7 +318,7 @@ def test_label_on_issues_from_issue_tracker(mocker: MockerFixture) -> None:
     mock_lbl.assert_called_once_with(
         "123",
         "match_me",
-        'poo#2 test auto_review:"match_me":force_result:softfailed (ignoring force result for ticket which is not in tracker "openqa-force-result")',
+        'label:poo#2 test auto_review:"match_me":force_result:softfailed (ignoring force result for ticket which is not in tracker "openqa-force-result")',
         "file",
         "",
         "",
@@ -415,7 +418,66 @@ def test_label_on_issues_from_issue_tracker_retry_limit(
     mock_lbl.assert_called_once_with(
         "123",
         "match_me",
-        'poo#1 test auto_review:"match_me":retry:3',
+        'label:poo#1 test auto_review:"match_me":retry:3',
+        "file",
+        expected_restart,
+        "",
+        client,
+    )
+
+
+@pytest.mark.parametrize(
+    ("subject", "expected_label", "expected_restart"),
+    [
+        (
+            'test auto_review:"match_me"',
+            'poo#1 test auto_review:"match_me"',
+            "",
+        ),
+        (
+            'test auto_review:"match_me":retry',
+            'label:poo#1 test auto_review:"match_me":retry',
+            "1",
+        ),
+        (
+            'test auto_review:"match_me":retry:carry_over',
+            'poo#1 test auto_review:"match_me":retry:carry_over',
+            "1",
+        ),
+        (
+            'test auto_review:"match_me":no_carry_over',
+            'label:poo#1 test auto_review:"match_me":no_carry_over',
+            "",
+        ),
+    ],
+)
+def test_label_on_issues_from_issue_tracker_carry_over_modifiers(
+    mocker: MockerFixture, subject: str, expected_label: str, expected_restart: str
+) -> None:
+    mocker.patch.dict("os.environ", {"min_search_term": "5"})
+    mock_lbl = mocker.patch("openqa_label_known_issues.label_on_issue", return_value=True)
+    mocker.patch("openqa_label_known_issues.count_restarts", return_value=0)
+
+    client = openqa_label_known_issues.OpenQAClient("http://localhost")
+    issues_list = [
+        {
+            "id": "1",
+            "subject": subject,
+            "tracker_name": "openqa-force-result",
+        }
+    ]
+
+    assert (
+        openqa_label_known_issues.label_on_issues_from_issue_tracker(
+            "123", issues_list, "file", client, job={"id": 123}
+        )
+        is True
+    )
+
+    mock_lbl.assert_called_once_with(
+        "123",
+        "match_me",
+        expected_label,
         "file",
         expected_restart,
         "",

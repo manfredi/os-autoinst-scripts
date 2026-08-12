@@ -26,7 +26,7 @@ automatically labeled with the corresponding ticket and optionally retriggered
 where it makes sense.
 
 For this the subject line of a ticket must include text following the format
-`auto_review:"<search_term>"[:retry[:<limit>]][:force_result:<result>]`
+`auto_review:"<search_term>"[:retry[:<limit>]][:force_result:<result>][:carry_over|:no_carry_over]`
 
 Note that the `force_result` feature is disabled by default.
 
@@ -37,6 +37,12 @@ Note that the `force_result` feature is disabled by default.
   7 retries with a custom `<limit>` number of retries.
 * `:force_result:<result>`: (optional) give the job a special label which
   forces the result to be the given string
+* `:carry_over`: (optional) boolean switch to explicitly force carrying over of
+  the bug reference on consecutive failures.
+* `:no_carry_over`: (optional) boolean switch to explicitly prevent carrying
+  over of the bug reference. Note that carry-over is disabled by default when
+  `:retry` is specified, to ensure job completion hook scripts trigger reliably on
+  consecutive failures.
 
 Examples:
 * `auto_review:"error 42 found"`.
@@ -45,6 +51,8 @@ Examples:
 * `auto_review:"error 42 found":force_result:softfailed`.
 * `auto_review:"error 42 found":retry:force_result:softfailed`.
 * `auto_review:"error 42 found":retry:3:force_result:softfailed`.
+* `auto_review:"error 42 found":retry:carry_over`.
+* `auto_review:"error 42 found":no_carry_over`.
 
 The search terms are crosschecked against the logfiles and "reason" field of
 the openQA jobs. A multi-line search is possible, for example using the
