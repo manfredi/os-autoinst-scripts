@@ -107,7 +107,7 @@ sync_changesrevision() {
     local target_rev=$3
     path="$dir/$package"
     $client_prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$target_rev" "$path"/_servicedata
-    if ! diff -u "$path"/.osc/_servicedata "$path"/_servicedata; then
+    if ! diff -u "$path"/.osc/sources/_servicedata "$path"/_servicedata; then
         debug_osc up "$path"
         debug_osc cat "$submit_target" "$package" "$package".changes > "$path/$package".changes
         debug_osc ci -m "sync changesrevision with $submit_target" "$path"
