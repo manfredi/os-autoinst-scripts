@@ -19,7 +19,7 @@ item --gap --             -- OS Inst (You will be prompted to edit cmdline after
 item --gap --             -------------------------------- x86_64 ----------------------------------
 item --key l leapS1       (L)Boot openSUSE Leap16.0 from download.opensuse.org / ttyS1 (http)
 item --key e leapS2       (E)Boot openSUSE Leap16.0 from download.opensuse.org / ttyS2 (http)
-item --key a leapS1auto   (A)Boot openSUSE Leap16.0 / ttyS1 agama=http://py.md/oqaagma16
+item --key a leapS1auto   (A)Boot openSUSE Leap16.0 KVM Server with Agama / ttyS1 agama=http://py.md/oqaagma16
 item --key g tumbleweed_KVM_agama    (G)Boot openSUSE Tumbleweed KVM server from O3 repo with Agama/ ttyS1 (http)
 item --key y tumbleweed_KVM_autoyast (Y)Boot openSUSE Tumbleweed KVM server from O3 repo with autoyast/ ttyS1 (http)
 item --key t tumbleweedS1 (T)Boot openSUSE Tumbleweed from download.opensuse.org / ttyS1 (http)
