@@ -100,6 +100,11 @@ create_snapshots() {
     $osc release --no-delay --target-project "$staging_project" --target-repository=openSUSE_Tumbleweed -r openSUSE_Tumbleweed -a x86_64 "$src_project" "$package"
 }
 
+# To avoid having a big changelog header (with date, email, blank line, version
+# and then the actual commit message) for every commit (or every push / service
+# trigger) we manipulate the .changes file and _servicedata, setting it back
+# to the upstream version and then let OBS generate it again with all commits
+# since that version in one changelog entry.
 sync_changesrevision() {
     log-info "sync_changesrevision $*"
     local dir=$1
