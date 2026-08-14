@@ -24,6 +24,8 @@ staging_project=${staging_project:-${src_project}:testing}
 dst_project=${dst_project:-${src_project}:tested}
 submit_target=${submit_target:-openSUSE:Factory}
 scenario_definitions="${scenario_definitions:-"scenario-definitions.yaml"}"
+XMLSTARLET=$(command -v xmlstarlet || true)
+[[ -n $XMLSTARLET ]] || (echo "Need xmlstarlet" >&2 && exit 1)
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")"/_common
@@ -106,7 +108,7 @@ sync_changesrevision() {
     local package=$2
     local target_rev=$3
     path="$dir/$package"
-    $client_prefix xmlstarlet ed -L -u "//param[@name='changesrevision']" -v "$target_rev" "$path"/_servicedata
+    $client_prefix "$XMLSTARLET" ed -L -u "//param[@name='changesrevision']" -v "$target_rev" "$path"/_servicedata
     if ! diff -u "$path"/.osc/sources/_servicedata "$path"/_servicedata; then
         debug_osc up "$path"
         debug_osc cat "$submit_target" "$package" "$package".changes > "$path/$package".changes
