@@ -361,15 +361,15 @@ class AutoSubmitter:
             for item in source_dir.iterdir():
                 if item.is_file():
                     shutil.copy2(item, ".")
-                elif item.is_dir() and item.name != ".osc":
+                elif item.is_dir() and item.name not in {".osc", ".git"}:
                     shutil.copytree(item, item.name)
 
-    def _commit_and_push(self, title: str) -> None:
+    def _commit_and_push(self, title: str, branch: str) -> None:
         """Commit and push changes."""
         git_cmd = shlex.split(self.git_cmd_str)
         add_cmd = [*git_cmd, "add", "--all"]
         commit_cmd = [*git_cmd, "commit", "--message", title]
-        push_cmd = [*git_cmd, "push", "-f"]
+        push_cmd = [*git_cmd, "push", "-f", "origin", branch]
 
         if self.dry_run:
             log.info("[dry-run] Would execute: %s", " ".join(add_cmd))
@@ -437,7 +437,7 @@ class AutoSubmitter:
 
         try:
             self._prepare_local_clone(package, branch)
-            self._commit_and_push(title)
+            self._commit_and_push(title, branch)
             return self._create_pull_request(title, description, branch)
         finally:
             os.chdir(original_dir)
