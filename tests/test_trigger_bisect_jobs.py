@@ -1,5 +1,5 @@
 # Copyright SUSE LLC
-# ruff: noqa: FBT001 FBT002 FBT003 E501 PT017 ARG001
+# ruff: file-ignore[boolean-type-hint-positional-argument, boolean-default-value-positional-argument, boolean-positional-value-in-call, line-too-long, pytest-assert-in-except, unused-function-argument]
 """tests for openqa-trigger-bisect-jobs."""
 
 import importlib.machinery
@@ -7,7 +7,7 @@ import importlib.util
 import json
 import pathlib
 import re
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 from argparse import Namespace
 from typing import Any, cast
 from unittest.mock import MagicMock, call, patch

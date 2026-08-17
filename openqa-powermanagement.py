@@ -7,7 +7,7 @@ import configparser
 import json
 import logging
 import os
-import subprocess  # noqa: S404
+import subprocess  # ruff: ignore[suspicious-subprocess-import]
 from pathlib import Path
 
 import requests
@@ -143,7 +143,7 @@ for machine in sorted(set(machines_to_power_on)):
         logger.info("Would power ON '%s' - Dry run mode", machine)
     elif "power_management" in config and config["power_management"].get(machine + "_POWER_ON"):
         logger.info("Powering ON: %s", machine)
-        subprocess.run(config["power_management"][machine + "_POWER_ON"], shell=True, check=True)  # noqa: S602
+        subprocess.run(config["power_management"][machine + "_POWER_ON"], shell=True, check=True)  # ruff: ignore[subprocess-popen-with-shell-equals-true]
     else:
         logger.info("Unable to power ON '%s' - No command for that", machine)
 
@@ -154,6 +154,6 @@ for machine in machine_list_idle + machine_list_broken:
         logger.info("Would power OFF '%s' - Dry run mode", machine)
     elif "power_management" in config and config["power_management"].get(machine + "_POWER_OFF"):
         logger.info("Powering OFF: %s", machine)
-        subprocess.run(config["power_management"][machine + "_POWER_OFF"], shell=True, check=True)  # noqa: S602
+        subprocess.run(config["power_management"][machine + "_POWER_OFF"], shell=True, check=True)  # ruff: ignore[subprocess-popen-with-shell-equals-true]
     else:
         logger.info("Unable to power OFF '%s' - No command for that", machine)

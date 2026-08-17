@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright SUSE LLC
-# ruff: noqa: BLE001, C901, D103, D401, E501, FBT001, FBT003, PLR0911, PLR0912, PLR0913, PLR0914, PLR0915, PLR0917, PLR2004, S110, S404, S603, SIM105, SIM112, T201, TRY300, PERF203, PERF401
+# ruff: file-ignore[blind-except, complex-structure, undocumented-public-function, non-imperative-mood, line-too-long, boolean-type-hint-positional-argument, boolean-positional-value-in-call, too-many-return-statements, too-many-branches, too-many-arguments, too-many-locals, too-many-statements, too-many-positional-arguments, magic-value-comparison, try-except-pass, suspicious-subprocess-import, subprocess-without-shell-equals-true, suppressible-exception, uncapitalized-environment-variables, print, try-consider-else, try-except-in-loop, manual-list-comprehension]
 """Takes an openQA job URL, looks for matching "known issues" and labels/restarts."""
 
 from __future__ import annotations

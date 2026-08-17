@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright SUSE LLC
-# ruff: noqa: T201, S404
+# ruff: file-ignore[print, suspicious-subprocess-import]
 
 """Automated openQA Zombie Reaper for s390x.
 
@@ -61,7 +61,7 @@ def run_cmd(cmd: str, *, check: bool = True, verbose: bool = False) -> str:
     if verbose:
         print(f"Executing: {cmd}")
     try:
-        res = subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=check)  # noqa: S603
+        res = subprocess.run(shlex.split(cmd), capture_output=True, text=True, check=check)  # ruff: ignore[subprocess-without-shell-equals-true]
         return res.stdout.strip()
     except subprocess.CalledProcessError as e:
         print(f"Error executing command: {cmd}\n{e.stderr}")
@@ -110,7 +110,7 @@ def wait_for_host(host: str, config: ReaperConfig) -> bool:
         if config.verbose:
             print(f"Checking host availability: {check_cmd}")
         try:
-            res = subprocess.run(  # noqa: S603
+            res = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
                 shlex.split(check_cmd),
                 capture_output=True,
                 text=True,
@@ -179,7 +179,7 @@ def check_libvirt_health(host: str, config: ReaperConfig) -> bool:
         print(f"Checking libvirt health on {host}...")
     check_cmd = f'ssh -o ConnectTimeout={config.ssh_timeout} -o BatchMode=yes {host} "sudo virsh list"'
     try:
-        res = subprocess.run(  # noqa: S603
+        res = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
             shlex.split(check_cmd),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -256,8 +256,8 @@ def handle_host(
 
 @app.command()
 def reap(
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be done without executing")] = False,  # noqa: FBT002
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose output")] = False,  # noqa: FBT002
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be done without executing")] = False,  # ruff: ignore[boolean-default-value-positional-argument]
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose output")] = False,  # ruff: ignore[boolean-default-value-positional-argument]
     reboot_method: Annotated[
         RebootMethod,
         typer.Option("--reboot-method", help="Reboot method to use ('sysrq' to induce crash or 'reboot' to reboot)"),

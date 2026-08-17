@@ -1,5 +1,5 @@
 # Copyright SUSE LLC
-# ruff: noqa: S404, FBT001
+# ruff: file-ignore[suspicious-subprocess-import, boolean-type-hint-positional-argument]
 """Unit tests for monitor-openqa_job."""
 
 from __future__ import annotations
