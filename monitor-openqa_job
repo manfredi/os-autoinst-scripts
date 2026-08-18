@@ -3,6 +3,8 @@
 # ruff: file-ignore[undocumented-public-function, too-many-arguments, too-many-positional-arguments, suspicious-subprocess-import, subprocess-without-shell-equals-true, print, error-instead-of-exception]
 """Monitor an openQA job by polling the status of a job over the API."""
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -21,18 +23,69 @@ import typer
 log = logging.getLogger(__name__)
 
 
-def load_job_ids(path: str = "job_post_response") -> list[int]:
+def _get_product_status_and_job_ids(client: httpx.Client, host: str, product_id: int) -> tuple[str, list[int]]:
+    response = client.get(f"{host}/api/v1/isos/{product_id}", params={"include_job_ids": 1})
+    response.raise_for_status()
+    res_data = response.json()
+    status = res_data.get("status", "")
+    job_ids = res_data.get("job_ids", [])
+    return status, [int(jid) for jid in job_ids]
+
+
+def _raise_scheduling_error(status: str) -> None:
+    msg = f"Product scheduling ended with unexpected status: {status}"
+    raise RuntimeError(msg)
+
+
+def _poll_scheduled_product(host: str, product_id: int) -> list[int]:
+    log.info("Asynchronous scheduling initiated. Scheduled Product ID: %s", product_id)
+    log.info("Waiting for openQA to schedule the jobs...")
+
+    status = ""
+    job_ids: list[int] = []
+
+    try:
+        with httpx.Client() as client:
+            for attempt in tenacity.Retrying(
+                stop=tenacity.stop_after_delay(600),
+                wait=tenacity.wait_fixed(5),
+                retry=tenacity.retry_if_result(lambda x: x[0] in {"scheduled", "scheduling"}),
+                reraise=True,
+            ):
+                with attempt:
+                    status, job_ids = _get_product_status_and_job_ids(client, host, product_id)
+    except Exception as e:
+        log.error("Failed to retrieve scheduled job IDs for product %s: %s", product_id, e)
+        raise typer.Exit(code=2) from e
+
+    if status != "done":
+        _raise_scheduling_error(status)
+
+    if not job_ids:
+        msg = f"No jobs scheduled for product {product_id}"
+        raise RuntimeError(msg)
+
+    return job_ids
+
+
+def load_job_ids(path: str = "job_post_response", host: str | None = None) -> list[int]:
     try:
         with pathlib.Path(path).open("r", encoding="utf-8") as f:
             data = json.load(f)
-        ids = data.get("ids", [])
-        return [int(jid) for jid in ids]
     except FileNotFoundError as e:
         print(f"Need job response status file '{path}'", file=sys.stderr)
         raise typer.Exit(code=2) from e
     except Exception as e:
         log.error("Failed to read or parse '%s': %s", path, e)
         raise typer.Exit(code=2) from e
+
+    product_id = data.get("scheduled_product_id")
+    if product_id:
+        host_val = host or "https://openqa.opensuse.org"
+        return _poll_scheduled_product(host_val, int(product_id))
+
+    ids = data.get("ids", [])
+    return [int(jid) for jid in ids]
 
 
 def fetch_job_api(client: httpx.Client, url: str, params: dict[str, Any], retries: int) -> dict[str, Any]:
@@ -263,7 +316,7 @@ def main(
     if not osc_cmd_str:
         osc_cmd_str = f"{prefix} osc" if prefix else "osc"
 
-    job_ids = load_job_ids("job_post_response")
+    job_ids = load_job_ids(host=host_val, path="job_post_response")
     failed_jobs: list[int] = []
     failed_versions: dict[str, int] = {}
 
