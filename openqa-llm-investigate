@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Copyright SUSE LLC
-# ruff: noqa: ANN401, BLE001, C901, D103, E501, FA102, FBT001, FURB118, PLR0913, PLR0914, PLR0915, PLR0917, PLR2004, S404, S603, T201, TRY400
+# ruff: file-ignore[any-type, blind-except, complex-structure, undocumented-public-function, line-too-long, future-required-type-annotation, boolean-type-hint-positional-argument, reimplemented-operator, too-many-arguments, too-many-locals, too-many-statements, too-many-positional-arguments, magic-value-comparison, suspicious-subprocess-import, subprocess-without-shell-equals-true, print, error-instead-of-exception]
 """Investigates an openQA job failure using an LLM."""
 
 import json
@@ -251,11 +251,11 @@ Provide exactly 3 sentences answering:
 def investigate(
     job_url: str = typer.Argument(..., help="The openQA test URL or job ID for which to trigger LLM investigation"),
     verbose: Annotated[int, typer.Option("--verbose", "-v", count=True, help="Increase verbosity")] = 0,
-    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Quiet mode")] = False,  # noqa: FBT002
-    dry: Annotated[  # noqa: FBT002
+    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Quiet mode")] = False,  # ruff: ignore[boolean-default-value-positional-argument]
+    dry: Annotated[  # ruff: ignore[boolean-default-value-positional-argument]
         bool, typer.Option("--dry", help="Dry run mode: output summary instead of posting a comment")
     ] = False,
-    force: Annotated[  # noqa: FBT002
+    force: Annotated[  # ruff: ignore[boolean-default-value-positional-argument]
         bool,
         typer.Option(
             "--force",

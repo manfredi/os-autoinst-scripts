@@ -1,5 +1,5 @@
 # Copyright SUSE LLC
-# ruff: noqa: FBT003, E501, S404, PLC0415, ERA001, PLR0915
+# ruff: file-ignore[boolean-positional-value-in-call, line-too-long, suspicious-subprocess-import, import-outside-top-level, commented-out-code, too-many-statements]
 """Unit tests for openqa-label-known-issues."""
 
 from __future__ import annotations
@@ -7,7 +7,6 @@ from __future__ import annotations
 import importlib.machinery
 import importlib.util
 import json
-import os
 import pathlib
 import subprocess
 import sys
@@ -127,7 +126,7 @@ def test_extract_excerpt(tmp_path: pathlib.Path) -> None:
     # File with exactly 1 matched line (clean_lines has 1 element and is sliced to empty)
     f_one = tmp_path / "one_line_match"
     f_one.write_text("Result: died")
-    assert openqa_label_known_issues.extract_excerpt(str(f_one)) == ""
+    assert not openqa_label_known_issues.extract_excerpt(str(f_one))
 
     # Backend process died
     f = tmp_path / "log1"
@@ -549,7 +548,6 @@ def test_handle_unreachable(mocker: MockerFixture) -> None:
     mock_resp_get = Mock(status_code=200, text="Gru job failed connection error Inactivity timeout")
     mock_client.get.side_effect = None
     mock_client.get.return_value = mock_resp_get
-    client_obj = openqa_label_known_issues.OpenQAClient("http://host")
     mock_comment = mocker.patch("openqa_label_known_issues.comment_on_job")
     mock_restart = mocker.patch("openqa_label_known_issues.restart_job")
 
@@ -605,7 +603,7 @@ def test_handle_unreviewed(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
     mocker.patch("openqa_label_known_issues.extract_excerpt", return_value="my excerpt")
     mocker.patch("openqa_label_known_issues.multipart_from_markdown", return_value="multipart-email")
     mock_send = mocker.patch("openqa_label_known_issues.send_email")
-    
+
     client_obj = openqa_label_known_issues.OpenQAClient("http://host", dry_run=False)
     client_obj_dry = openqa_label_known_issues.OpenQAClient("http://host", dry_run=True)
 
@@ -641,7 +639,7 @@ def test_handle_unreviewed(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
     mock_run.side_effect = None
     mock_run.return_value = mock_res
     mock_send.reset_mock()
-    
+
     mock_run_dry = mocker.patch.object(client_obj_dry, "run_cmd", return_value=mock_res)
     openqa_label_known_issues.handle_unreviewed(
         "http://testurl", str(f), "my reason", "24", True, "from@ex.com", "", {}, client_obj_dry
@@ -697,21 +695,35 @@ def test_investigate_issue(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
 
     # 1. Invalid job ID
     with patch("builtins.print") as mock_print:
-        openqa_label_known_issues.investigate_issue("http://host/tests/abc", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+        openqa_label_known_issues.investigate_issue(
+            "http://host/tests/abc",
+            mock_client,
+            openqa_label_known_issues.OpenQAClient("http://host"),
+            [],
+            "http://host",
+        )
         mock_print.assert_called_once_with("Invalid job ID extracted from http://host/tests/abc", file=sys.stderr)
 
     # 2. job_data fetch fails
     mock_sub = mocker.patch("subprocess.run")
     mock_sub.side_effect = Exception("err")
     with patch("builtins.print") as mock_print:
-        openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+        openqa_label_known_issues.investigate_issue(
+            "http://host/tests/123",
+            mock_client,
+            openqa_label_known_issues.OpenQAClient("http://host"),
+            [],
+            "http://host",
+        )
         mock_print.assert_any_call("Failed to load job data for 123: err", file=sys.stderr)
 
     # 3. job state not done / passed (should return early)
     mock_sub.side_effect = None
     mock_sub.return_value = Mock(stdout='{"job": {"state": "running", "result": "none"}}')
     mock_client_get = mocker.patch.object(mock_client, "get")
-    openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+    openqa_label_known_issues.investigate_issue(
+        "http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host"
+    )
     mock_client_get.assert_not_called()
 
     # 4. log fetch returns 200, handles issues tracker matched
@@ -720,7 +732,9 @@ def test_investigate_issue(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
     mock_client.get.return_value = mock_resp_log
 
     mock_tracker = mocker.patch("openqa_label_known_issues.label_on_issues_from_issue_tracker", return_value=True)
-    openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+    openqa_label_known_issues.investigate_issue(
+        "http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host"
+    )
     mock_tracker.assert_called_once()
 
     # 5. log fetch 404, reason null, unreachable fails
@@ -731,14 +745,22 @@ def test_investigate_issue(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
     mock_client.get.return_value = mock_resp_log
 
     mock_unreachable = mocker.patch("openqa_label_known_issues.handle_unreachable", return_value=1)
-    openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+    openqa_label_known_issues.investigate_issue(
+        "http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host"
+    )
     mock_unreachable.assert_called_once()
 
     # 6. log fetch 404, reason null, unreachable returns 0 (should print cannot label)
     mock_unreachable.reset_mock()
     mock_unreachable.return_value = 0
     with patch("builtins.print") as mock_print:
-        openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+        openqa_label_known_issues.investigate_issue(
+            "http://host/tests/123",
+            mock_client,
+            openqa_label_known_issues.OpenQAClient("http://host"),
+            [],
+            "http://host",
+        )
         mock_print.assert_any_call(
             "'http://host/tests/123' does not have autoinst-log.txt or reason, cannot label", file=sys.stderr
         )
@@ -750,7 +772,9 @@ def test_investigate_issue(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
     mock_sub.return_value = Mock(
         stdout='{"job": {"state": "done", "result": "failed", "reason": null, "group_id": null}}'
     )
-    openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+    openqa_label_known_issues.investigate_issue(
+        "http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host"
+    )
     # unreachable matched and returns early
 
     # 8. REPORT_FILE, KEEP_REPORT_FILE set
@@ -758,13 +782,17 @@ def test_investigate_issue(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
     mocker.patch.dict("os.environ", {"REPORT_FILE": str(tmp_path / "custom_report"), "KEEP_REPORT_FILE": "1"})
     mock_resp_log.status_code = 200
     mock_resp_log.text = "some text"
-    openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+    openqa_label_known_issues.investigate_issue(
+        "http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host"
+    )
     assert (tmp_path / "custom_report").exists()
 
     # 9. Exception during report file unlink (covers lines 544-545 finally cleanup branch)
     mocker.patch.dict("os.environ", {"REPORT_FILE": "", "KEEP_REPORT_FILE": "0"}, clear=True)
     mocker.patch("pathlib.Path.unlink", side_effect=Exception("unlink err"))
-    openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+    openqa_label_known_issues.investigate_issue(
+        "http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host"
+    )
 
     # 10. label_on_issues_without_tickets returns True (covers line 519 return)
     mocker.patch("pathlib.Path.unlink", side_effect=None)
@@ -774,7 +802,9 @@ def test_investigate_issue(mocker: MockerFixture, tmp_path: pathlib.Path) -> Non
     mock_resp_log.text = "Compilation failed in require at isotovideo line 28."
     mock_client.get.return_value = mock_resp_log
     mocker.patch("openqa_label_known_issues.label_on_issues_without_tickets", return_value=True)
-    openqa_label_known_issues.investigate_issue("http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host")
+    openqa_label_known_issues.investigate_issue(
+        "http://host/tests/123", mock_client, openqa_label_known_issues.OpenQAClient("http://host"), [], "http://host"
+    )
 
 
 def test_main(mocker: MockerFixture) -> None:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright SUSE LLC
-# ruff: noqa: PLR0913, PLR0917, T201, S107
+# ruff: file-ignore[too-many-arguments, too-many-positional-arguments, print, hardcoded-password-default]
 """Find blocking SLE maintenance jobs based on parsing gitlab CI job logs of qem-bot.
 
 This script parses the gitlab CI job logs of qem-bot directly because they serve as

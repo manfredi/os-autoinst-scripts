@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # Copyright SUSE LLC
-# ruff: noqa: T201
+# ruff: file-ignore[print]
 """Report QE machines that draw unexpected power via SNMP PDU queries.
 
 Exits 1 if any machine not marked active in NetBox draws more than MAX_POWER Watts (default: 5),

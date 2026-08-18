@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright SUSE LLC
-# ruff: noqa: T201
+# ruff: file-ignore[print]
 
 """List incidents for the openQA job.
 
