@@ -350,32 +350,28 @@ def test_label_on_issues_from_issue_tracker(mocker: MockerFixture) -> None:
 
 
 def test_get_default_retry_limit(mocker: MockerFixture) -> None:
-    # 1. Fallback default
-    mocker.patch.dict("os.environ", {}, clear=True)
-    assert openqa_label_known_issues.get_default_retry_limit(7) == 7
-
-    # 2. Env override
+    # Env override
     mocker.patch.dict("os.environ", {"auto_review_retry_limit": "4"}, clear=True)
     assert openqa_label_known_issues.get_default_retry_limit(7) == 4
 
-    # 3. Custom parameter override
+    # Custom parameter override
     mocker.patch.dict("os.environ", {}, clear=True)
     assert openqa_label_known_issues.get_default_retry_limit(5) == 5
 
 
 def test_count_restarts(mocker: MockerFixture) -> None:
-    # No clone_id/cloned_from
+    # No origin_id
     job = {"id": 123}
     client = openqa_label_known_issues.OpenQAClient("http://localhost")
     assert openqa_label_known_issues.count_restarts(job, client) == 0
 
     # With nested clone structure (restarts = 2)
-    job_with_parent = {"id": 123, "cloned_from": 122}
+    job_with_parent = {"id": 123, "origin_id": 122}
 
     # Mock openqa_label_known_issues.OpenQAClient.run_cmd instead of subprocess.run
     mock_run = mocker.patch.object(openqa_label_known_issues.OpenQAClient, "run_cmd")
     res1 = mocker.MagicMock()
-    res1.stdout = json.dumps({"job": {"id": 122, "cloned_from": 121}})
+    res1.stdout = json.dumps({"job": {"id": 122, "origin_id": 121}})
     res2 = mocker.MagicMock()
     res2.stdout = json.dumps({"job": {"id": 121}})
     mock_run.side_effect = [res1, res2]
