@@ -217,7 +217,7 @@ def label_on_issue(
     return True
 
 
-def get_default_retry_limit(default_limit: int = 7) -> int:
+def get_default_retry_limit(default_limit) -> int:
     env_limit = os.environ.get("auto_review_retry_limit")
     if env_limit is not None:
         try:

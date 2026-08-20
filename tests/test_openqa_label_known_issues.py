@@ -350,15 +350,11 @@ def test_label_on_issues_from_issue_tracker(mocker: MockerFixture) -> None:
 
 
 def test_get_default_retry_limit(mocker: MockerFixture) -> None:
-    # 1. Fallback default
-    mocker.patch.dict("os.environ", {}, clear=True)
-    assert openqa_label_known_issues.get_default_retry_limit(7) == 7
-
-    # 2. Env override
+    # Env override
     mocker.patch.dict("os.environ", {"auto_review_retry_limit": "4"}, clear=True)
     assert openqa_label_known_issues.get_default_retry_limit(7) == 4
 
-    # 3. Custom parameter override
+    # Custom parameter override
     mocker.patch.dict("os.environ", {}, clear=True)
     assert openqa_label_known_issues.get_default_retry_limit(5) == 5
 
