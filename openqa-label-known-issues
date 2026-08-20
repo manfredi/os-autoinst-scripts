@@ -231,11 +231,11 @@ def count_restarts(job: dict, openqa_client: OpenQAClient) -> int:
     restarts = 0
     current_job = job
     while restarts < 100:
-        cloned_from = current_job.get("cloned_from") or current_job.get("settings", {}).get("cloned_from")
-        if not cloned_from:
+        origin_id = current_job.get("origin_id") or current_job.get("settings", {}).get("origin_id")
+        if not origin_id:
             break
         restarts += 1
-        current_id = str(cloned_from)
+        current_id = str(origin_id)
         try:
             res = openqa_client.run_cmd([f"jobs/{current_id}"], force_no_dry=True)
             job_data = json.loads(res.stdout)
