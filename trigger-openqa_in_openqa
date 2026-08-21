@@ -15,6 +15,7 @@ machine="${machine:-"uefi"}"
 build_tag=${BUILD_TAG:-}
 client_prefix=${client_prefix:-}
 flavor=${flavor:-"dev"}
+version=${flavor:-"Tumbleweed"}
 full_run=${FULL:-}
 full_run_args=${full_run_args:-}
 group_id="${group_id:-"openQA"}"
@@ -59,7 +60,6 @@ main() {
     done
     [[ $dry_run == 1 ]] && client_prefix="echo" osc="echo $osc"
     local qcow build rc=0
-    download_scenario
     download_latest_published_tumbleweed_image
 
     #  Only use devel:openQA:testing for the hourly runs which we monitor
@@ -89,11 +89,6 @@ download_latest_published_tumbleweed_image() {
     fi
     # ensure the build tag conforms to coolo's unwritten rules for the openQA dashboard
     build=$(echo "$build_tag" | sed -e "s/jenkins-trigger-openQA_in_openQA-/:/" -e "s/-/./g")
-}
-
-download_scenario() {
-    rm -f /var/tmp/sd.yaml
-    curl https://raw.githubusercontent.com/os-autoinst/os-autoinst-distri-openQA/master/"${scenario_definitions}" -o /var/tmp/sd.yaml
 }
 
 create_snapshots() {
@@ -160,18 +155,28 @@ trigger() {
     # shellcheck disable=SC2206
     [[ $full_run_args ]] && ARGS+=($full_run_args)
 
+    local schedule_args=()
+    if [[ $scenario_definitions =~ ^https?:// ]]; then
+        schedule_args+=("SCENARIO_DEFINITIONS_YAML_FILE=$scenario_definitions" "async=1")
+    elif [[ -f $scenario_definitions ]]; then
+        schedule_args+=("--param-file" "SCENARIO_DEFINITIONS_YAML=$scenario_definitions")
+    else
+        local scenario_url="https://raw.githubusercontent.com/os-autoinst/os-autoinst-distri-openQA/master/${scenario_definitions}"
+        schedule_args+=("SCENARIO_DEFINITIONS_YAML_FILE=$scenario_url" "async=1")
+    fi
+
     # shellcheck disable=SC2086
     ${client_prefix} ${openqa_cli} \
         schedule --host "${target_host_proto}://${target_host}" \
-        --param-file SCENARIO_DEFINITIONS_YAML=/var/tmp/sd.yaml \
-        VERSION=Tumbleweed \
+        "${schedule_args[@]}" \
+        VERSION="${version}" \
         DISTRI=openqa FLAVOR="${flavor}" ARCH="${arch}" \
         HDD_1="$qcow" BUILD="${build}" _GROUP="${group_id}" \
         OPENQA_OBS_PROJECT="$staging_project" \
         "${ARGS[@]}" \
         | tee full_job_post_response
     head -1 full_job_post_response > job_post_response
-    rm full_job_post_response
+    rm -f full_job_post_response
 }
 
 caller 0 > /dev/null || main "$@"
