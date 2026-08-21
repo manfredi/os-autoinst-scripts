@@ -51,14 +51,14 @@ def _poll_scheduled_product(host: str, product_id: int) -> list[int]:
         status, job_ids = tenacity.Retrying(
             stop=tenacity.stop_after_delay(600),
             wait=tenacity.wait_fixed(5),
-            retry=tenacity.retry_if_result(lambda x: x[0] in {"scheduled", "scheduling"}),
+            retry=tenacity.retry_if_result(lambda x: x[0] == "scheduling"),
             reraise=True,
         )(_get_product_status_and_job_ids, host, product_id)
     except Exception as e:
         log.error("%s: %s", err_prefix, e)
         raise typer.Exit(code=2) from e
 
-    if status != "done":
+    if status != "scheduled":
         log.error("%s: unexpected status: %s", err_prefix, status)
         raise typer.Exit(code=2)
 

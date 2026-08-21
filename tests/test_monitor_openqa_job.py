@@ -256,9 +256,9 @@ def test_run_osc_cmd_non_transient_fails_immediately(mocker: MockerFixture) -> N
     [
         (
             subprocess.CompletedProcess(
-                args=["openqa-cli"], returncode=0, stdout='{"status": "done", "job_ids": [123, 456]}', stderr=""
+                args=["openqa-cli"], returncode=0, stdout='{"status": "scheduled", "job_ids": [123, 456]}', stderr=""
             ),
-            "done",
+            "scheduled",
             [123, 456],
             None,
         ),
@@ -308,8 +308,8 @@ def test_get_product_status_and_job_ids(
 @pytest.mark.parametrize(
     ("side_effect", "expected_res", "expected_exit_code"),
     [
-        (("done", [123, 456]), [123, 456], None),
-        ([("scheduling", []), ("scheduled", []), ("done", [123, 456])], [123, 456], None),
+        (("scheduled", [123, 456]), [123, 456], None),
+        ([("scheduling", []), ("scheduling", []), ("scheduled", [123, 456])], [123, 456], None),
         (("failed", []), None, 2),
         (RuntimeError("something failed"), None, 2),
     ],
