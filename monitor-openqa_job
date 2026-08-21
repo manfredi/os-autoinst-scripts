@@ -23,47 +23,48 @@ import typer
 log = logging.getLogger(__name__)
 
 
-def _get_product_status_and_job_ids(client: httpx.Client, host: str, product_id: int) -> tuple[str, list[int]]:
-    response = client.get(f"{host}/api/v1/isos/{product_id}", params={"include_job_ids": 1})
-    response.raise_for_status()
-    res_data = response.json()
+def _get_product_status_and_job_ids(host: str, product_id: int) -> tuple[str, list[int]]:
+    cmd = ["openqa-cli", "api", "--host", host, f"isos/{product_id}", "include_job_ids=1"]
+    try:
+        res = subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        msg = f"openqa-cli failed with exit code {e.returncode}: {e.stderr.strip() or e.stdout.strip()}"
+        raise RuntimeError(msg) from e
+
+    try:
+        res_data = json.loads(res.stdout)
+    except json.JSONDecodeError as e:
+        msg = f"Failed to parse JSON response from openqa-cli: {res.stdout.strip()}"
+        raise RuntimeError(msg) from e
+
     status = res_data.get("status", "")
     job_ids = res_data.get("job_ids", [])
     return status, [int(jid) for jid in job_ids]
-
-
-def _raise_scheduling_error(status: str) -> None:
-    msg = f"Product scheduling ended with unexpected status: {status}"
-    raise RuntimeError(msg)
 
 
 def _poll_scheduled_product(host: str, product_id: int) -> list[int]:
     log.info("Asynchronous scheduling initiated. Scheduled Product ID: %s", product_id)
     log.info("Waiting for openQA to schedule the jobs...")
 
-    status = ""
-    job_ids: list[int] = []
-
+    err_prefix = f"Failed to retrieve job IDs for product {product_id}"
     try:
-        with httpx.Client() as client:
-            for attempt in tenacity.Retrying(
-                stop=tenacity.stop_after_delay(600),
-                wait=tenacity.wait_fixed(5),
-                retry=tenacity.retry_if_result(lambda x: x[0] in {"scheduled", "scheduling"}),
-                reraise=True,
-            ):
-                with attempt:
-                    status, job_ids = _get_product_status_and_job_ids(client, host, product_id)
+        status, job_ids = tenacity.Retrying(
+            stop=tenacity.stop_after_delay(600),
+            wait=tenacity.wait_fixed(5),
+            retry=tenacity.retry_if_result(lambda x: x[0] in {"scheduled", "scheduling"}),
+            reraise=True,
+        )(_get_product_status_and_job_ids, host, product_id)
     except Exception as e:
-        log.error("Failed to retrieve scheduled job IDs for product %s: %s", product_id, e)
+        log.error("%s: %s", err_prefix, e)
         raise typer.Exit(code=2) from e
 
     if status != "done":
-        _raise_scheduling_error(status)
+        log.error("%s: unexpected status: %s", err_prefix, status)
+        raise typer.Exit(code=2)
 
     if not job_ids:
-        msg = f"No jobs scheduled for product {product_id}"
-        raise RuntimeError(msg)
+        log.error("%s: no jobs scheduled", err_prefix)
+        raise typer.Exit(code=2)
 
     return job_ids
 
