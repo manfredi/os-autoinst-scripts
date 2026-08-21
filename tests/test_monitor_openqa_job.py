@@ -1,5 +1,5 @@
 # Copyright SUSE LLC
-# ruff: file-ignore[suspicious-subprocess-import, boolean-type-hint-positional-argument]
+# ruff: file-ignore[suspicious-subprocess-import, boolean-type-hint-positional-argument, private-member-access]
 """Unit tests for monitor-openqa_job."""
 
 from __future__ import annotations
@@ -249,3 +249,87 @@ def test_run_osc_cmd_non_transient_fails_immediately(mocker: MockerFixture) -> N
     with pytest.raises(subprocess.CalledProcessError):
         monitor_job.run_osc_cmd(["osc"])
     assert mock_run.call_count == 1
+
+
+@pytest.mark.parametrize(
+    ("run_result", "expected_status", "expected_job_ids", "expected_err"),
+    [
+        (
+            subprocess.CompletedProcess(
+                args=["openqa-cli"], returncode=0, stdout='{"status": "done", "job_ids": [123, 456]}', stderr=""
+            ),
+            "done",
+            [123, 456],
+            None,
+        ),
+        (
+            subprocess.CalledProcessError(returncode=1, cmd=["openqa-cli"], stderr="Some openqa-cli error"),
+            "",
+            [],
+            "openqa-cli failed with exit code 1: Some openqa-cli error",
+        ),
+        (
+            subprocess.CompletedProcess(args=["openqa-cli"], returncode=0, stdout="not a json", stderr=""),
+            "",
+            [],
+            "Failed to parse JSON response from openqa-cli: not a json",
+        ),
+    ],
+)
+def test_get_product_status_and_job_ids(
+    mocker: MockerFixture,
+    run_result: Any,
+    expected_status: str,
+    expected_job_ids: list[int],
+    expected_err: str | None,
+) -> None:
+    mock_run = mocker.patch("monitor_job.subprocess.run")
+    if isinstance(run_result, Exception):
+        mock_run.side_effect = run_result
+    else:
+        mock_run.return_value = run_result
+
+    if expected_err:
+        with pytest.raises(RuntimeError) as exc:
+            monitor_job._get_product_status_and_job_ids("http://host", 598236)
+        assert expected_err in str(exc.value)
+    else:
+        status, job_ids = monitor_job._get_product_status_and_job_ids("http://host", 598236)
+        assert status == expected_status
+        assert job_ids == expected_job_ids
+        mock_run.assert_called_once_with(
+            ["openqa-cli", "api", "--host", "http://host", "isos/598236", "include_job_ids=1"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("side_effect", "expected_res", "expected_exit_code"),
+    [
+        (("done", [123, 456]), [123, 456], None),
+        ([("scheduling", []), ("scheduled", []), ("done", [123, 456])], [123, 456], None),
+        (("failed", []), None, 2),
+        (RuntimeError("something failed"), None, 2),
+    ],
+)
+def test_poll_scheduled_product(
+    mocker: MockerFixture,
+    side_effect: Any,
+    expected_res: list[int] | None,
+    expected_exit_code: int | None,
+) -> None:
+    mocker.patch("time.sleep")
+    mock_get = mocker.patch("monitor_job._get_product_status_and_job_ids")
+    if isinstance(side_effect, (list, Exception)):
+        mock_get.side_effect = side_effect
+    else:
+        mock_get.return_value = side_effect
+
+    if expected_exit_code is not None:
+        with pytest.raises(typer.Exit) as exc:
+            monitor_job._poll_scheduled_product("http://host", 598236)
+        assert exc.value.exit_code == expected_exit_code
+    else:
+        assert monitor_job._poll_scheduled_product("http://host", 598236) == expected_res
