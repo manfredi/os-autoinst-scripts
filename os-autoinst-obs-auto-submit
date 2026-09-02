@@ -531,7 +531,7 @@ class AutoSubmitter:
         for f in pathlib.Path().glob("_service:*-test.changes"):
             f.unlink()
 
-        osc_dir = pathlib.Path(".osc")
+        osc_dir = pathlib.Path(".osc" / "sources")
         if osc_dir.is_dir():
             for f in osc_dir.glob("*-test.changes"):
                 shutil.copy2(f, ".")
