@@ -290,7 +290,7 @@ def test_run_submissions_force(mocker: MockerFixture) -> None:
     )
 
     mock_unlink.assert_called_once()
-    mock_run.assert_any_call(["cleanup-obs-project", "devel:openQA:testing", "I am sure"], check=True)
+    mock_run.assert_any_call(["cleanup-obs-project", "devel:openQA:testing", "I am sure"], capture_output=False, text=False, check=True)
 
 
 def test_run_osc_cmd_error_logging(caplog: pytest.LogCaptureFixture, mocker: MockerFixture) -> None:
