@@ -128,6 +128,12 @@ def get_obs_sr_id(target: str, dst_project: str, package: str, osc_cmd_str: str,
     return ""
 
 
+def _log_head(file: str, content: str, num: int):
+    lines = content.splitlines()
+    preview = "\n".join(lines[:num])
+    log.info("First %d lines of '%s':\n%s", min(num, len(lines)), file, preview)
+
+
 def last_revision(project: str, package: str, submit_target: str, osc_cmd_str: str) -> str:
     """Get the last revision from changelog."""
     log.debug("last_revision %s %s", project, package)
@@ -138,10 +144,12 @@ def last_revision(project: str, package: str, submit_target: str, osc_cmd_str: s
     cmd = [*shlex.split(osc_cmd_str), "cat", f"{project}/{package}/{filename}"]
     try:
         res = run_osc_cmd(cmd)
+        _log_head(f"{project}/{package}/{filename}", res.stdout, 50)
         for line in res.stdout.splitlines():
             if "Update to version" in line:
                 match = re.search(r"\.([^.:]+):$", line)
                 if match:
+                    log.info("Last revision for '%s/%s': %s", project, package, match.group(1));
                     return match.group(1)
     except subprocess.CalledProcessError as e:
         log.warning("osc cat failed for last_revision: %s", e)
@@ -574,6 +582,7 @@ class AutoSubmitter:
             lines = [line for line in content.splitlines() if "rpmlintrc" not in line]
             spec_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+        # Prevent empty changelog entries
         for changes_file in pathlib.Path().glob("*.changes"):
             content = changes_file.read_text(encoding="utf-8", errors="ignore")
             content = re.sub(r"^  \* $", "  * Update to latest openQA version", content, flags=re.MULTILINE)
@@ -639,6 +648,12 @@ class AutoSubmitter:
 
         if not self._commit_local_changes(package, version):
             return False
+
+        # Log both changes files before submitting
+        for filename in (f"_service:obs_scm:{package}.changes", f"{package}.changes"):
+            changes_file = pathlib.Path(filename)
+            content = changes_file.read_text(encoding="utf-8", errors="ignore")
+            _log_head(changes_file, content, 50)
 
         success = True
         for target in self.targets:
