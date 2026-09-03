@@ -9,6 +9,7 @@ import importlib.machinery
 import importlib.util
 import logging
 import pathlib
+import re
 import subprocess
 import sys
 from typing import TYPE_CHECKING, Any
@@ -190,13 +191,18 @@ def test_make_obs_submit_request_failure(mocker: MockerFixture) -> None:
     assert res is False
 
 
-def test_last_revision(mocker: MockerFixture) -> None:
+def test_last_revision(mocker: MockerFixture, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    sha = 'c0f8ee6a233ed250dbc54c19dee50118'
     mock_run = mocker.patch("auto_submit.run_osc_cmd")
     mock_run.return_value = subprocess.CompletedProcess(
-        ["osc"], 0, stdout="* Update to version 162312.c0f8ee6a233ed250dbc54c19dee50118:\n"
+        ["osc"], 0, stdout=f"* Update to version 162312.{sha}:\n  * fix: foo\n  * feat: bar\n  * perf: boo\n"
     )
     res = auto_submit.last_revision("proj", "pkg", "Factory", "osc")
-    assert res == "c0f8ee6a233ed250dbc54c19dee50118"
+    assert res == sha
+    assert re.search(r"First 4 lines of 'proj/pkg/_service:obs_scm:pkg.changes'", caplog.records[0].getMessage()) is not None
+
+    assert caplog.records[1].getMessage() == f"Last revision for 'proj/pkg': {sha}"
 
 
 def test_last_revision_none(mocker: MockerFixture) -> None:
@@ -307,3 +313,30 @@ def test_run_osc_cmd_error_logging(caplog: pytest.LogCaptureFixture, mocker: Moc
     assert "Command 'osc sr' failed with exit code 1" in messages[0]
     assert "Command stdout:\nsome stdout" in messages[0]
     assert "Command stderr:\nsome stderr" in messages[0]
+
+
+def test_update_package(caplog: pytest.LogCaptureFixture, mocker: MockerFixture, tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    mocker.patch("auto_submit.AutoSubmitter._disable_service_buildtime", return_value="23")
+    mocker.patch("auto_submit.AutoSubmitter._cleanup_and_rename_files", return_value="23")
+    mocker.patch("auto_submit.AutoSubmitter._find_version", return_value="23")
+    mocker.patch("auto_submit.AutoSubmitter._osc_addremove_and_filter_specs", return_value="23")
+    mocker.patch("auto_submit.AutoSubmitter._commit_local_changes", return_value=True)
+    content = "Line 1\nLine 2"
+    filename1 = "_service:obs_scm:pkg.changes"
+    filename2 = "pkg.changes"
+    for filename in (filename1, filename2):
+        changes_file = tmp_path / filename
+        changes_file.write_text(content, encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    submitter = auto_submit.AutoSubmitter(
+        dst_project="dst",
+        osc_cmd_str="osc",
+        dry_run=False,
+    )
+    caplog.set_level(logging.INFO)
+    res = submitter.update_package("pkg")
+    assert caplog.records[0].getMessage() == "update_package pkg"
+    assert caplog.records[1].getMessage() == f"First 2 lines of '{filename1}':\n{content}"
+    assert caplog.records[2].getMessage() == f"First 2 lines of '{filename2}':\n{content}"
+    assert res is True

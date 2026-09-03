@@ -139,6 +139,7 @@ create_devel_openqa_snapshot() {
             return
         fi
         target_rev=$(last_revision "$submit_target" "$package")
+        log-info "Last revision for '$submit_target/$package': $target_rev"
         debug_osc co --server-side-source-service-files "$src_project"/"$package"
         sync_changesrevision "$src_project" "$package" "$target_rev"
         create_snapshots "$package"
